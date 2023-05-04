@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: sqs-subscricao-lambda
+
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+
+  NovoFuncionarioCriadoSQS:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: "NovoFuncionarioCriadoSQS"
+
+  Subscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      TopicArn: arn:aws:sns:us-east-1:137031771149:NovoFuncionarioCriadoTopic
+      Endpoint: !GetAtt NovoFuncionarioCriadoSQS.Arn
+      Protocol: sqs
+      RawMessageDelivery: true
+
+  NovoFuncionarioCriadoSQSQueuePolicy:
+    Type: "AWS::SQS::QueuePolicy"
+    Properties:
+      Queues: 
+        - !Ref NovoFuncionarioCriadoSQS
+      PolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal: "*"
+            Action:
+              - sqs:SendMessage
+            Resource:
+              - !GetAtt NovoFuncionarioCriadoSQS.Arn
+            Condition:
+              ArnEquals:
+                "aws:SourceArn": arn:aws:sns:us-east-1:137031771149:NovoFuncionarioCriadoTopic
+
+  EnviarKitBoasVindasParaNovoFuncionarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: EnviarKitBoasVindasParaNovoFuncionarioFunction
+      CodeUri: hello-world/
+      Handler: app.lambdaHandler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        SqsEvento:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt NovoFuncionarioCriadoSQS.Arn
